@@ -234,9 +234,15 @@ bool cSource::areAllLampsFueled()
     return true;
 }
 
-main()
+main( int argc, char * argv[] )
 {
-    cSource::read("../test/data6.txt");
+    if( argc != 2 )
+    {
+        std::cout << "usage >lamp <fname>\n";
+        exit(1);
+    }
+    cSource::read(argv[1]);
+
     cSource::fuel();
     cSource::totalFuel();
     cSource::areAllLampsFueled();
