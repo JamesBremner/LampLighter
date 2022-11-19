@@ -34,9 +34,9 @@ $(ODIR)/%.o: %.cpp
 	g++  $(CCflags) \
 	-c -o $@ $< $(INCS)
 
-starter: $(OBJ_starter)
+lamp: $(OBJ_starter)
 	g++ $(OPT) \
-	-o bin/starter.exe $^  \
+	-o bin/lamp.exe $^  \
 	$(static_link_flags) $(LIBS)
 
 .PHONY: clean
