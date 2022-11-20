@@ -6,19 +6,20 @@
 #include <algorithm>
 #include <set>
 
+class cSource;
+
 /// @brief An edge between sources containing lamps
 class cEdge
 {
 public:
+
     int source1;   // id of fuel source at one end of edge
     int source2;   // id of fuel source at other end of edge
     int lampCount; // count of lamps on edge
-    int fueled;    // count of lamps fuelled
+    int source1fueled;  // number lamps that can be fueled from source1
+    int source2fueled;  // number lamps that can be fueled from source1
 
-    cEdge()
-        : fueled(0)
-    {
-    }
+    cEdge();
 
     /// @brief get id of fuel source at other end of edge
     /// @param i id of fuel source whose 'partner is required
@@ -30,25 +31,59 @@ public:
         else
             return source1;
     }
+
+    /** @brief fuel lamps on edge from source
+    * @param fuelSource 
+    *
+    * This does nothing if edge is NOT connected to fuel source
+    */
+    void fuel(const cSource &fuelSource);
+
+    /**
+     * @brief Lamps that are fueled
+     * 
+     * @return int fueled lamp count
+     * 
+     * This number may be greater than the lamp count
+     * when the edge is being fueled from both sources
+     * and the source radii overlap
+     * which happens when one or both sources
+     * are reuired to fuel another edge with more lamps
+     */
+    int fueledCount() const
+    {
+        return source1fueled + source2fueled;
+    }
+
+    void display()
+    {
+        std::cout << source1 << " to " << source2
+                  << " lamps " << lampCount
+                  << " src " << source1 << " fuels " << source1fueled
+                  << " src " << source2 << " fuels " << source2fueled
+                  << "\n";
+    }
 };
 
 /// @brief A fueling source
 class cSource
 {
 
-    int id;                                 ///< source id
-    std::vector<cEdge> vEdge;               ///< edges on this source
-    int radius;                             ///< radius of reachable lamps
-    static std::vector<cSource> vSource;    ///< vector of sources
+    int myID;                            ///< source id
+    std::vector<cEdge> vEdge;            ///< edges on this source
+    int myRadius;                        ///< radius of reachable lamps
+    static std::vector<cSource> vSource; ///< vector of sources
 
 public:
+    cSource();
+    cSource(int id, cEdge &e);
 
     /// @brief read input
     /// @param fname filename
     static void read(const std::string &fname);
 
     /// @brief find source from id
-    /// @param id 
+    /// @param id
     /// @return reference to source
     static cSource &find(int id);
 
@@ -66,17 +101,59 @@ public:
     cEdge *singleUnfueledEdge();
 
     static bool areAllLampsFueled();
+
+    void radius( int r )
+    {
+        myRadius = r;
+    }
+
+    int id() const
+    {
+        return myID;
+    }
+    int radius() const
+    {
+        return myRadius;
+    }
 };
 
 std::vector<cSource> cSource::vSource;
 
+cEdge::cEdge()
+    : source1fueled(0),
+      source2fueled(0)
+{
+}
+
+void cEdge::fuel(const cSource &fuelSource)
+{
+    if (source1 == fuelSource.id())
+        if (fuelSource.radius() > source1fueled)
+            source1fueled = fuelSource.radius();
+    if (source2 == fuelSource.id())
+        if (fuelSource.radius() > source2fueled)
+            source2fueled = fuelSource.radius();
+    //fueled = source1fueled + source2fueled;
+}
+
 cSource &cSource::find(int id)
 {
     for (auto &s : vSource)
-        if (s.id == id)
+        if (s.id() == id)
             return s;
     throw std::runtime_error(
         "Cannot find source " + std::to_string(id));
+}
+
+cSource::cSource()
+    : myRadius(0)
+{
+}
+cSource::cSource(int id, cEdge &e)
+    : myRadius(0),
+      myID(id)
+{
+    vEdge.push_back(e);
 }
 
 /// @brief read input file
@@ -107,11 +184,7 @@ void cSource::read(const std::string &fname)
         catch (...)
         {
             // new source, add to source vector
-            cSource s;
-            s.id = e.source1;
-            s.vEdge.push_back(e);
-            s.radius = 0;
-            vSource.push_back(s);
+            vSource.push_back(cSource( e.source1, e ));
         }
         try
         {
@@ -123,11 +196,7 @@ void cSource::read(const std::string &fname)
         catch (...)
         {
             // new source, add to source vector
-            cSource s;
-            s.id = e.source2;
-            s.vEdge.push_back(e);
-            s.radius = 0;
-            vSource.push_back(s);
+            vSource.push_back(cSource( e.source2, e ));
         }
     }
 }
@@ -137,22 +206,17 @@ void cSource::read(const std::string &fname)
 
 void cSource::fuelReachableLamps()
 {
-    // std::cout << "fuelling from " << fuelSource.id << "\n";
+    // std::cout << "fuelling from " << id
+    //           << " radius " << radius << "\n";
 
     // select other sources connected to fuelling source
     for (auto &e : vEdge)
     {
-        e.fueled += radius;
-
-        auto &otherSource = cSource::find(e.other(id));
+        e.fuel( *this );
 
         // loop over edges on other source
-        for (auto &oe : otherSource.vEdge)
-        {
-            // if edge connects to fuelling source, fuel it
-            if (oe.other(otherSource.id) == id)
-                oe.fueled += radius;
-        }
+        for (auto &oe : cSource::find(e.other(myID)).vEdge)
+            oe.fuel( *this );
     }
 }
 
@@ -161,7 +225,7 @@ cEdge *cSource::singleUnfueledEdge()
     cEdge *punfuelledEdge = 0;
     for (auto &e : vEdge)
     {
-        if (e.lampCount > e.fueled)
+        if (e.lampCount > e.fueledCount())
         {
             if (punfuelledEdge)
             {
@@ -194,11 +258,14 @@ void cSource::fuel()
                 continue;
 
             // fuel the edge from the source at the other end of the unfuelled edge
-            auto &fuelSource = cSource::find(unfuelledEdge->other(s.id));
+            auto &fuelSource = cSource::find(unfuelledEdge->other(s.id()));
 
             // increment radius sufficient to fuel
             // the unfuelled lamps on edge
-            fuelSource.radius += unfuelledEdge->lampCount - unfuelledEdge->fueled;
+            fuelSource.radius( 
+                fuelSource.radius() + 
+                unfuelledEdge->lampCount - 
+                unfuelledEdge->fueledCount() );
 
             // fuel all edges reachable from source
             fuelSource.fuelReachableLamps();
@@ -214,29 +281,38 @@ void cSource::totalFuel()
     int fuel = 0;
     for (auto &s : vSource)
     {
-        fuel += s.radius;
-        std::cout << s.id << " r="
-                  << s.radius << "\n";
+        fuel += s.radius();
+        std::cout << s.id() << " r="
+                  << s.radius() << "\n";
     }
     std::cout << "\ntotal fuel " << fuel << "\n";
 }
 
 bool cSource::areAllLampsFueled()
 {
-    for( auto& s : vSource)
-        for( auto& e : s.vEdge )
-            if( e.fueled < e.lampCount )
-                {
-                    std::cout << "unfueled lamp!!! "
-                        << e.source1 << " to " << e.source2 << "\n";
-                    return false;
-                }
+    for (auto &s : vSource)
+        for (auto &e : s.vEdge)
+        {
+            std::cout << e.source1 << " to " << e.source2
+                      << " lamps " << e.lampCount << " fuelled " << e.fueledCount() << " ";
+            if (e.fueledCount() < e.lampCount)
+            {
+                std::cout << "unfueled lamp!!!\n";
+                // return false;
+            }
+            else if (e.fueledCount() == e.lampCount)
+            {
+                std::cout << "OK\n";
+            }
+            else
+                std::cout << "radii overlap\n";
+        }
     return true;
 }
 
-main( int argc, char * argv[] )
+main(int argc, char *argv[])
 {
-    if( argc != 2 )
+    if (argc != 2)
     {
         std::cout << "usage >lamp <fname>\n";
         exit(1);
