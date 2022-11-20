@@ -6,8 +6,6 @@
 #include <algorithm>
 #include <set>
 
-class cSource;
-
 /// @brief An edge between sources containing lamps
 class cEdge
 {
@@ -33,11 +31,12 @@ public:
     }
 
     /** @brief fuel lamps on edge from source
-    * @param fuelSource 
+    * @param sourceID
+    * @param sourceRadius
     *
     * This does nothing if edge is NOT connected to fuel source
     */
-    void fuel(const cSource &fuelSource);
+    void fuel(int sourceID, int sourceRadius);
 
     /**
      * @brief Lamps that are fueled
@@ -125,15 +124,16 @@ cEdge::cEdge()
 {
 }
 
-void cEdge::fuel(const cSource &fuelSource)
+void cEdge::fuel(
+    int sourceID,
+     int sourceRadius)
 {
-    if (source1 == fuelSource.id())
-        if (fuelSource.radius() > source1fueled)
-            source1fueled = fuelSource.radius();
-    if (source2 == fuelSource.id())
-        if (fuelSource.radius() > source2fueled)
-            source2fueled = fuelSource.radius();
-    //fueled = source1fueled + source2fueled;
+    if (source1 == sourceID)
+        if (sourceRadius > source1fueled)
+            source1fueled = sourceRadius;
+    if (source2 == sourceID)
+        if (sourceRadius > source2fueled)
+            source2fueled = sourceRadius;
 }
 
 cSource &cSource::find(int id)
@@ -212,11 +212,11 @@ void cSource::fuelReachableLamps()
     // select other sources connected to fuelling source
     for (auto &e : vEdge)
     {
-        e.fuel( *this );
+        e.fuel( myID, myRadius );
 
         // loop over edges on other source
         for (auto &oe : cSource::find(e.other(myID)).vEdge)
-            oe.fuel( *this );
+            oe.fuel( myID, myRadius );
     }
 }
 
@@ -320,7 +320,10 @@ main(int argc, char *argv[])
     cSource::read(argv[1]);
 
     cSource::fuel();
-    cSource::totalFuel();
+
     cSource::areAllLampsFueled();
+
+    cSource::totalFuel();
+
     return 0;
 }
