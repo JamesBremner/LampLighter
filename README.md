@@ -13,4 +13,4 @@ Algorithm pseudocode:
            - INCREMENT radius of fuel source with unfueled edge lamp count
            - LOOP over edges on fuel source
                - IF edge fueled lamp count from fuel sourve < fuel source radius
-                   - SET edfe fueled lamp count from fuel source to fuel source radius 
+                   - SET edge fueled lamp count from fuel source to fuel source radius 
